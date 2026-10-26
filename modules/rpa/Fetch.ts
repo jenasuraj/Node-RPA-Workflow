@@ -13,6 +13,7 @@ export default async function RpaFetchDataHandler(req: Request, res: Response) {
         waitUntil: "domcontentloaded",
         });
         const bodyText = await page.locator("body").innerText();
+        await page.getByRole("button", { name: "Admin / Counsellor Login" }).click();
         return res.status(200).json({ data: bodyText });
     }
         catch(err){

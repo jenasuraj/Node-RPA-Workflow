@@ -1,31 +1,28 @@
 import { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import { HumanMessage } from "@langchain/core/messages";
 import { graph } from "./graph";
 
-/**
- * POST /call-ai-agent
- * Body: { "prompt": "Write about the benefits of browser automation" }
- */
+
 export default async function CallAiAgentHandler(req: Request, res: Response) {
-  const prompt = typeof req.body?.prompt === "string" ? req.body.prompt.trim() : "";
-  if (!prompt) {
-    res.status(400).json({ error: 'Send a JSON body like { "prompt": "..." }' });
-    return;
+
+  const prompt = req.body?.prompt;
+  if (typeof prompt !== "string" || !prompt.trim()) {
+    return res.status(400).json({ error: "Body must include a non-empty 'prompt' string." });
   }
+  const thread_id = "3f2a9c"
 
   try {
-    const result = await graph.invoke({
-      messages: [new HumanMessage(prompt)],
-    });
-
-    // result.messages = [HumanMessage, AIMessage (writer), AIMessage (summariser)]
-    const [, written, summary] = result.messages;
-
+    const result = await graph.invoke(
+      { messages: [new HumanMessage(prompt)] },
+      {
+        configurable: { thread_id },
+        recursionLimit: 100,
+      },
+    );
     res.json({
       prompt,
-      written: written?.content,
-      summary: summary?.content,
-      messages: result.messages.map((m) => ({ role: m.getType(), content: m.content })),
+      response: result.messages.at(-1)?.content,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
