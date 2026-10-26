@@ -1,0 +1,13 @@
+# Not sent to the Docker daemon as build context.
+# Keeps the build fast (no local node_modules) and keeps secrets out of image layers (.env).
+node_modules
+dist
+coverage
+.git
+!.env.example
+*.log
+*.md
+test
+jest.config.js
+eslint.config.mjs
+.DS_Store
