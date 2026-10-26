@@ -1,32 +1,34 @@
-# Stage 1: build — has all deps (incl. dev) and the TypeScript compiler
-FROM node:22-alpine AS build
+# Stage 1: Build
+# Debian (glibc) instead of Alpine so node_modules match the Playwright runtime below
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
 
-# Copy manifests first so `npm ci` is cached until dependencies change
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY tsconfig.json tsconfig.build.json ./
-COPY src ./src
+# Copy all project files, including routes, modules, controllers, etc.
+COPY . .
+
 RUN npm run build
 
-# Drop devDependencies so the runtime stage gets a lean node_modules
+# Remove development dependencies
 RUN npm prune --omit=dev
 
-# Stage 2: runtime — only dist/ + production deps, no TS, no tests, no eslint
-FROM node:22-alpine
+# Stage 2: Runtime
+# Official Playwright image ships Chromium + its system libraries.
+# Keep this tag in sync with the "playwright" version in package-lock.json.
+FROM mcr.microsoft.com/playwright:v1.64.1-noble
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Run as the non-root `node` user that the base image provides
-COPY --from=build --chown=node:node /app/node_modules ./node_modules
-COPY --from=build --chown=node:node /app/dist ./dist
-COPY --chown=node:node package.json ./
-USER node
+COPY --from=build --chown=pwuser:pwuser /app/node_modules ./node_modules
+COPY --from=build --chown=pwuser:pwuser /app/dist ./dist
+COPY --from=build --chown=pwuser:pwuser /app/package.json ./
+
+USER pwuser
 
 EXPOSE 3000
 
-# Exec form so node is PID 1 and receives SIGTERM from `docker stop`
 CMD ["node", "dist/server.js"]
